@@ -40,6 +40,7 @@ def main():
 	AWS_REDSHIFT_HOST = os.getenv('AWS_REDSHIFT_HOST')
 	AWS_REDSHIFT_PORT = os.getenv('AWS_REDSHIFT_PORT')
 	AWS_REDSHIFT_DB = os.getenv('AWS_REDSHIFT_DB')
+	AWS_REDSHIFT_SCHEMA = os.getenv('AWS_REDSHIFT_SCHEMA')
 
 	# A connection is an object that represents a session with the PostgreSQL database
 	db_conn = redshift_db_connection(AWS_REDSHIFT_DB, AWS_REDSHIFT_USERNAME,  AWS_REDSHIFT_HOST,  AWS_REDSHIFT_PORT,  AWS_REDSHIFT_PASSWORD)
@@ -50,6 +51,7 @@ def main():
 			try:
 				# Creating a new table
 				table_name = 'us_stock_prices'
+				table_name = AWS_REDSHIFT_SCHEMA + '.' + table_name
 				redshift_db_create_table(cursor=cur, table=table_name)
 				
 				# Inserting the records form the dataframe
