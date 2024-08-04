@@ -14,6 +14,8 @@ def get_polygon_financial_data(POLYGON_BEARER_TOKEN, date):
             )
         if stock_request.status_code == 200:
             print(f"Successfully retrieved data from Polygon API for the date '{date}'.\n")
+            if stock_request.json()["resultsCount"] == 0:
+                return pd.DataFrame() #empty DF
             stock_results = stock_request.json()["results"]
 
             # Returning the data as a pandas Data Frame
