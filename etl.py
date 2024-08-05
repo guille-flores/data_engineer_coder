@@ -52,14 +52,20 @@ def main():
 			db_cursor = db_conn.cursor()
 			with db_cursor as cur:
 				try:
-					# Creating a new table
+					# Creating a new table if it doesn't exist
 					table_name = 'us_stock_prices'
 					table_name = AWS_REDSHIFT_SCHEMA + '.' + table_name
 					redshift_db_create_table(cursor=cur, table=table_name)
+					# To UPSERT records, we need a staging table to store the retrieved records from the API
+					table_name_staging = table_name + '_staging'
+					redshift_db_create_table(cursor=cur, table=table_name_staging)
 					
-					# Inserting the records form the dataframe
-					redshift_table_data_insert(connection=db_conn, cursor=cur, table=table_name, df=df_stocks)
+					# Inserting the records from the dataframe into the staging table
+					redshift_table_data_insert(connection=db_conn, cursor=cur, table=table_name_staging, df=df_stocks)
 					
+					# Upserting into the main table
+					redshift_table_upsert(connection=db_conn, cursor=cur, table=table_name, staging_table=table_name_staging, cols=','.join(list(df_stocks.columns)))
+
 					# Querying a few records
 					redshift_top_query(cursor=cur, table=table_name, cols=','.join(list(df_stocks.columns)), toplimit=10)
 

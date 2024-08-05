@@ -110,13 +110,76 @@ def redshift_table_data_insert(connection, cursor, table, df):
         # Tuple to string is shown as '[(tuple 1), (tuple 2), ...]' we remove the [] as the INSERT command only ask for 'VALUES (tuple 1), (tuple 2), ( tuple 3)...;'
 
         cursor.execute(query)
-        print(f'Successfully inserted {cursor.rowcount}/{df.shape[0]} rows.\n')
+        print(f'Successfully inserted {cursor.rowcount}/{df.shape[0]} rows into the table "{table}".\n')
         if cursor.rowcount < df.shape[0]:
             print(f'WARNING: {df.shape[0]-cursor.rowcount} rows were not successfully inserted, please take a look.\n')
     except (Exception, psycopg2.DatabaseError) as error: 
         print("Error: %s" % error) 
         connection.rollback()
 
+
+
+###########################################
+# REDSHIFT TABLE DATA UPSERT 
+###########################################
+def redshift_table_upsert(connection, cursor, table, staging_table, cols):
+    try:
+        # Counting the number of rows to insert
+        query_count = """
+            SELECT 
+                COUNT(*)
+            FROM {table};
+        """.format(table=table)
+        cursor.execute(query_count)
+        table_count = cursor.fetchone()
+        table_count = table_count[0]
+        print(f'There are {table_count} rows in table "{table}".\n')
+
+        # Counting the number of rows to insert
+        query_count = """
+            SELECT 
+                COUNT(*)
+            FROM {staging_table};
+        """.format(staging_table=staging_table)
+        cursor.execute(query_count)
+        staging_count = cursor.fetchone()
+        staging_count = staging_count[0]
+        print(f'There are {staging_count} rows to insert from table "{staging_table}" into "{table}".\n')
+
+        # deleting existing rows
+        query_delete = """
+            DELETE FROM {table}
+            USING {staging_table}
+            WHERE {table}.stock = {staging_table}.stock
+                AND {table}.request_timestamp = {staging_table}.request_timestamp;
+        """.format(table=table, staging_table=staging_table, columns = cols)
+        cursor.execute(query_delete)
+        if cursor.rowcount > 0:
+            print(f'Successfully deleted {cursor.rowcount}/{table_count} rows from table "{table}".\n')
+
+        # Inserting all data from staging table
+        query_insert = """
+            INSERT INTO {table} ({columns})
+            SELECT 
+                {columns}
+            FROM {staging_table};
+        """.format(table=table, staging_table=staging_table, columns = cols)
+        cursor.execute(query_insert)
+        inserted = cursor.rowcount
+        print(f'Successfully inserted {inserted}/{staging_count} rows from table "{staging_table}" into "{table}".\n')
+        
+        if inserted < staging_count:
+            print(f'WARNING: {staging_count-inserted} rows from "{staging_table}" were not successfully inserted into "{table}", please take a look.\n')
+        else:
+            # Clearing the staging table
+            query_empty = """
+                TRUNCATE TABLE {staging_table};
+            """.format(staging_table=staging_table)
+            cursor.execute(query_empty)
+            print(f'Successfully emptied the staging table "{staging_table}".\n')
+    except (Exception, psycopg2.DatabaseError) as error: 
+        print("Error: %s" % error) 
+        connection.rollback()
 
 
 ###########################################
