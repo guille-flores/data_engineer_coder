@@ -8,12 +8,16 @@ import pandas as pd
 ###########################################
 def get_polygon_financial_data(POLYGON_BEARER_TOKEN, date):
     try:
+        # obtaining the API call for the stock values per day
         stock_request = requests.get(
             'https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/' + date,
             headers={"Authorization":"Bearer " + POLYGON_BEARER_TOKEN}
-            )
+        )
+        
+        # request response either OK or not
         if stock_request.status_code == 200:
             print(f"Successfully retrieved data from Polygon API for the date '{date}'.\n")
+            # We can have an OK status but have no data to ingest, if that's the case, we will return an empty DF
             if stock_request.json()["resultsCount"] == 0:
                 return pd.DataFrame() #empty DF
             stock_results = stock_request.json()["results"]
@@ -30,7 +34,8 @@ def get_polygon_financial_data(POLYGON_BEARER_TOKEN, date):
 
 def polygon_financial_df_transformation(df):
     try:
-        # selecting just the needed columns
+        # The API data will need to be processed (data type manipulation, selecting columns, etc.)
+        # Selecting just the needed columns
         df = df[['T', 'v', 'h', 'l', 't']]
 
         # renaming the columns so we can understand their meaning/what data they have
@@ -46,6 +51,8 @@ def polygon_financial_df_transformation(df):
         df['volume'] = df['volume'].astype(int)
         # parsing unix timestamp to a human readable date. Unixtimestamp for Polygon is coming in miliseconds (ms)
         df['request_timestamp'] = pd.to_datetime(df['request_unix_timestamp'], unit='ms')
+
+        # we will also ingest the current timestamp when we obtained and ingested the data by this script
         current_time_utc = datetime.datetime.now(datetime.UTC)
         df['ingestion_timestamp'] = current_time_utc
         df['ingestion_unix_timestamp'] = round(current_time_utc.timestamp()*1000)
@@ -79,6 +86,10 @@ def redshift_db_connection(AWS_REDSHIFT_DB, AWS_REDSHIFT_USERNAME,  AWS_REDSHIFT
 ###########################################
 def redshift_db_create_table(cursor, table):
     try:
+        # Creating the table to ingest the data. Some rules/considerations we applied:
+        # 1. Stock Name CANNOT be null
+        # 2. Field data type... volume as integer, price as decimal, timestamp as BIGINT, etc.
+        # 3. PK: composite primary key using stock name and timestamp... as the same stock cannot be in the table more than once for the same time period
         cursor.execute("""
             CREATE TABLE if not exists 
                 {table} (stock varchar(50) not null, volume int, highest_price decimal, lowest_price decimal, request_unix_timestamp BIGINT, request_timestamp timestamp not null, ingestion_unix_timestamp  BIGINT, ingestion_timestamp timestamp, PRIMARY KEY (stock, request_timestamp))
@@ -91,11 +102,12 @@ def redshift_db_create_table(cursor, table):
 
 
 ###########################################
-# REDSHIFT TABLE DATA INSERTION 
+# REDSHIFT TABLE DATA INSERTION - DUPLICATE RISK
 ###########################################
+# THIS FUNCTION WILL APPEND RECORDS (RISK OF DUPLICATES IN TABLE) - USE THE FUNCTION redshift_table_upsert TO AVOID DUPLICATES
 def redshift_table_data_insert(connection, cursor, table, df):
     try:
-        # Inserting records to the created table
+        # Inserting records to the created table. Column names are joined by a comma to have a text "col1, col2, col3, col4" so we cna use it for SQL.
         cols = ','.join(list(df.columns))
 
         # Changing Datetime to strings, otherwise the to_numpy() function will show the date surrounded by the class/object type: Timestamp('2024-08-01 20:00:00') instead of '2024-08-01 20:00:00'
@@ -110,7 +122,9 @@ def redshift_table_data_insert(connection, cursor, table, df):
         # Tuple to string is shown as '[(tuple 1), (tuple 2), ...]' we remove the [] as the INSERT command only ask for 'VALUES (tuple 1), (tuple 2), ( tuple 3)...;'
 
         cursor.execute(query)
+        # the cursor will store information of the command we ran, the SQL query in this case, so we can know how many rows were inserted and compared them vs initial DF size
         print(f'Successfully inserted {cursor.rowcount}/{df.shape[0]} rows into the table "{table}".\n')
+        # in case the inserted row are less than the DF size, it means some rows were not inserted and we want to alert the user so they can take a look.
         if cursor.rowcount < df.shape[0]:
             print(f'WARNING: {df.shape[0]-cursor.rowcount} rows were not successfully inserted, please take a look.\n')
     except (Exception, psycopg2.DatabaseError) as error: 
@@ -124,15 +138,15 @@ def redshift_table_data_insert(connection, cursor, table, df):
 ###########################################
 def redshift_table_upsert(connection, cursor, table, staging_table, cols):
     try:
-        # Counting the number of rows to insert
+        # Counting the number of rows in the table in redshift, so we can know how many records were inserted or updated
         query_count = """
             SELECT 
                 COUNT(*)
             FROM {table};
         """.format(table=table)
         cursor.execute(query_count)
-        table_count = cursor.fetchone()
-        table_count = table_count[0]
+        table_count = cursor.fetchone() # value of the COUNT result is in a row, the only row from the query performed
+        table_count = table_count[0] # the fetchone method returns a tuple "(count,)"... we want the first value as that's were the result of the COUNT is
         print(f'There are {table_count} rows in table "{table}".\n')
 
         # Counting the number of rows to insert
@@ -146,7 +160,7 @@ def redshift_table_upsert(connection, cursor, table, staging_table, cols):
         staging_count = staging_count[0]
         print(f'There are {staging_count} rows to insert from table "{staging_table}" into "{table}".\n')
 
-        # deleting existing rows
+        # deleting existing rows to update these records, we use as compund primary keys the stock name and timestamp
         query_delete = """
             DELETE FROM {table}
             USING {staging_table}
