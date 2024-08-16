@@ -1,5 +1,9 @@
 # Ignore environment variable files
-.env
+**/.env
+**/venv/
 
 # Ignore __pycache__ directories
-__pycache__/
+**/__pycache__/
+
+# Ignore possible log files in case the are created
+**/*.log

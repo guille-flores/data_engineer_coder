@@ -71,7 +71,8 @@ def redshift_db_connection(AWS_REDSHIFT_DB, AWS_REDSHIFT_USERNAME,  AWS_REDSHIFT
             user=AWS_REDSHIFT_USERNAME, 
             host=AWS_REDSHIFT_HOST, 
             port=AWS_REDSHIFT_PORT, 
-            password=AWS_REDSHIFT_PASSWORD
+            password=AWS_REDSHIFT_PASSWORD,
+            connect_timeout=5
         )
         print(f"Successfully connected to DB '{AWS_REDSHIFT_DB}'\n")
         return conn
@@ -169,6 +170,7 @@ def redshift_table_upsert(connection, cursor, table, staging_table, cols):
         """.format(table=table, staging_table=staging_table, columns = cols)
         cursor.execute(query_delete)
         if cursor.rowcount > 0:
+            print(f'Seems like some rows ({cursor.rowcount}/{table_count}) were already in the table "{table}", we will update them but first they will be deleted.\n')
             print(f'Successfully deleted {cursor.rowcount}/{table_count} rows from table "{table}".\n')
 
         # Inserting all data from staging table
@@ -199,18 +201,20 @@ def redshift_table_upsert(connection, cursor, table, staging_table, cols):
 ###########################################
 # REDSHIFT TABLE QUERY TOP 10 
 ###########################################
-def redshift_top_query(cursor, table, cols, toplimit):
+def redshift_top_query(conn, cursor, table, cols, toplimit):
     try:
         query = """
             SELECT TOP {top}
                 {columns}
             FROM {table}; 
         """.format(table=table, columns = cols, top = toplimit)
-
+        df = pd.read_sql_query(query, conn)
+        
         cursor.execute(query)
         print(f'Top {toplimit} records from {table}:')
-        for record in cursor:
-            print(record)
+        #for record in cursor:
+        #    print(record)
+        return df
     except Exception as error:
         print(f"Unable to retrieve records from table '{table}'.\n")
         print(error)

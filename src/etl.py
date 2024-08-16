@@ -3,12 +3,18 @@ import os
 from dotenv import load_dotenv
 import datetime
 import pandas as pd
-from etl_functions import *
+from utils.etl_functions import *
 
 
 def main():
 	try:
-		load_dotenv()
+		# Get the directory of the current script (etl.py)
+		current_dir = os.path.dirname(__file__)
+		# Construct the path to the project root by going up one level from src/
+		project_root = os.path.abspath(os.path.join(current_dir, '..'))
+		# Build the full path to the .env file in the config directory
+		dotenv_path = os.path.join(project_root, 'config', '.env')
+		load_dotenv(dotenv_path)
 
 		###########################################################################################
 		###########################################################################################
@@ -21,14 +27,16 @@ def main():
 		POLYGON_BEARER_TOKEN = os.getenv('POLYGON_BEARER_TOKEN')
 
 		# Polygon API is a free API, we cannot retrieve real-time nor today's data (before market closes). To avoid errors, w eretrieve last day data 
-		current_time_utc = datetime.datetime.now(datetime.UTC)
-		yesterday = (current_time_utc-datetime.timedelta(days = 1)).strftime('%Y-%m-%d')
+		current_time_utc = datetime.datetime.now(datetime.UTC) 
+		# As the time is in UTC, and we are using the US Stock market, we will subtract 1 day and 6 hours (UTC is 6 hours ahead of CST, which is the US timezone for most states)
+		yesterday = (current_time_utc-datetime.timedelta(days = 1, hours=6)).strftime('%Y-%m-%d')
 		df_stocks = get_polygon_financial_data(POLYGON_BEARER_TOKEN, yesterday)
 
 		if df_stocks.empty:
 			raise Exception("Sorry, seems like there is no data to work with.")
 		# renaming the columns and changing unixtime stamps to a date so we cna read it easily. We also add the current date as ingestion time.
 		df_stocks = polygon_financial_df_transformation(df_stocks)
+		print("Polygon API Response - Top Rows (DF HEAD)")
 		print(df_stocks.head())
 
 		###########################################################################################
@@ -66,9 +74,9 @@ def main():
 					# Upserting into the main table
 					redshift_table_upsert(connection=db_conn, cursor=cur, table=table_name, staging_table=table_name_staging, cols=','.join(list(df_stocks.columns)))
 
-					# Querying a few records
-					redshift_top_query(cursor=cur, table=table_name, cols=','.join(list(df_stocks.columns)), toplimit=10)
-
+					# Querying a few records and returning them in a pandas DF
+					response_df = redshift_top_query(conn=db_conn, cursor=cur, table=table_name, cols=','.join(list(df_stocks.columns)), toplimit=10)
+					print(response_df)
 				except (Exception, psycopg2.DatabaseError) as error:
 					print(error)
 	except Exception as error:
