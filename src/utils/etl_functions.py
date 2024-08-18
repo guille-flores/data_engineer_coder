@@ -25,9 +25,7 @@ def get_polygon_financial_data(POLYGON_BEARER_TOKEN, date):
             # Returning the data as a pandas Data Frame
             return pd.DataFrame(stock_results)
         else:
-            print(f"There was an error trying to retrieve data from Polygon API.\n")
-            print(f"API Request Status Code: {stock_request.status_code}")
-            print(stock_request.json())
+            raise Exception(f"Error - There was an error trying to retrieve data from Polygon API.\nAPI Request Status Code: {stock_request.status_code}\n{stock_request.json()}")
     except Exception as error:
         print(f"Unable to request/retrieve data from the Polygon API for the desired date '{date}'.\n")
         print(error)

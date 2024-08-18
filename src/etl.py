@@ -29,10 +29,32 @@ def main():
 		# Polygon API is a free API, we cannot retrieve real-time nor today's data (before market closes). To avoid errors, w eretrieve last day data 
 		current_time_utc = datetime.datetime.now(datetime.UTC) 
 		# As the time is in UTC, and we are using the US Stock market, we will subtract 1 day and 6 hours (UTC is 6 hours ahead of CST, which is the US timezone for most states)
-		yesterday = (current_time_utc-datetime.timedelta(days = 1, hours=6)).strftime('%Y-%m-%d')
+		yesterday = (current_time_utc-datetime.timedelta(days = 1, hours=6))
+		
+		# in case the day is weekend, there is no stock market data
+    	# we can ask if they want Friday data instead
+		if yesterday.weekday() > 4: # 0 = Monday, 4 = Friday, 6 = Sunday
+			print('--------------------------------------')
+			print('------------  WARNING  ---------------')
+			print('--------------------------------------')
+			days_to_friday = yesterday.weekday() - 4
+			last_friday = (yesterday-datetime.timedelta(days = days_to_friday)).strftime('%Y-%m-%d')
+			print(f'Seems like you are requesting data from a Saturday or Sunday ({yesterday.strftime('%Y-%m-%d')}).\nThere is no Stock Market data during those days.')
+			answer = ''
+			while answer not in ['Y', 'N', 'NO', 'YES']:
+				if answer not in ['Y', 'N', 'NO', 'YES', '']:
+					print(f'Only valid answers are \'y\', \'yes\', or \'n\', \'no\'. You answered with \'{answer}\'.')
+				answer = input(f'Do you want to request the data from last Friday ({last_friday}) instead?\n[y/n]: ').upper().strip()
+			
+			# in case user does want to get data from last friday, we will change the date
+			if answer in ['Y', 'YES']:
+				yesterday = yesterday-datetime.timedelta(days = days_to_friday)
+        # format the date as needed for the API call of Polygon
+		yesterday = yesterday.strftime('%Y-%m-%d')
+		
 		df_stocks = get_polygon_financial_data(POLYGON_BEARER_TOKEN, yesterday)
 
-		if df_stocks.empty:
+		if not isinstance(df_stocks, pd.DataFrame) or df_stocks.empty:
 			raise Exception("Sorry, seems like there is no data to work with.")
 		# renaming the columns and changing unixtime stamps to a date so we cna read it easily. We also add the current date as ingestion time.
 		df_stocks = polygon_financial_df_transformation(df_stocks)
