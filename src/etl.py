@@ -41,13 +41,13 @@ def main():
 			last_friday = (yesterday-datetime.timedelta(days = days_to_friday)).strftime('%Y-%m-%d')
 			print(f'Seems like you are requesting data from a Saturday or Sunday ({yesterday.strftime('%Y-%m-%d')}).\nThere is no Stock Market data during those days.')
 			answer = ''
-			while answer not in ['Y', 'N', 'NO', 'YES']:
-				if answer not in ['Y', 'N', 'NO', 'YES', '']:
+			while answer not in ['Y', 'N', 'NO', 'YES', 'S', 'SI', 'SÍ']:
+				if answer not in ['Y', 'N', 'NO', 'YES', 'S', 'SI', 'SÍ', '']:
 					print(f'Only valid answers are \'y\', \'yes\', or \'n\', \'no\'. You answered with \'{answer}\'.')
 				answer = input(f'Do you want to request the data from last Friday ({last_friday}) instead?\n[y/n]: ').upper().strip()
 			
 			# in case user does want to get data from last friday, we will change the date
-			if answer in ['Y', 'YES']:
+			if answer in ['Y', 'YES', 'S', 'SI', 'SÍ']:
 				yesterday = yesterday-datetime.timedelta(days = days_to_friday)
         # format the date as needed for the API call of Polygon
 		yesterday = yesterday.strftime('%Y-%m-%d')
