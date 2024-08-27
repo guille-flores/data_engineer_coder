@@ -39,7 +39,10 @@ def main():
 			print('--------------------------------------')
 			days_to_friday = yesterday.weekday() - 4
 			last_friday = (yesterday-datetime.timedelta(days = days_to_friday)).strftime('%Y-%m-%d')
-			print(f'Seems like you are requesting data from a Saturday or Sunday ({yesterday.strftime('%Y-%m-%d')}).\nThere is no Stock Market data during those days.')
+			print(f'Seems like you are requesting data from a Saturday or Sunday ({yesterday.strftime("%Y-%m-%d")}).\nThere is no Stock Market data during those days.')
+			print(f'We will request the data from last Friday ({last_friday}) instead.\n')
+			yesterday = yesterday-datetime.timedelta(days = days_to_friday)
+			''' INTERACTIVE API REQUEST
 			answer = ''
 			attempts = 0
 			max_attempts = 5
@@ -51,9 +54,10 @@ def main():
 
 			# in case user does want to get data from last friday, we will change the date
 			if answer not in ['Y', 'YES', 'S', 'SI', 'SÍ'] and attempts == max_attempts:
-				print(f'\nYou have reached the maximum number of attempts to specify if you want or not to get data from last Friday ({last_friday}) as you are requesting data for a weekend ({yesterday.strftime('%Y-%m-%d')}).\nRemember that no stock market data is available during weekends. As you reached the maximum numbers of attemps ({max_attempts}) without providing a valid answer (yes/y/s/si, no/n), we will retrieve by default data from last Friday.\n')
+				print(f'\nYou have reached the maximum number of attempts to specify if you want or not to get data from last Friday ({last_friday}) as you are requesting data for a weekend ({yesterday.strftime("%Y-%m-%d")}).\nRemember that no stock market data is available during weekends. As you reached the maximum numbers of attemps ({max_attempts}) without providing a valid answer (yes/y/s/si, no/n), we will retrieve by default data from last Friday.\n')
 			if answer in ['Y', 'YES', 'S', 'SI', 'SÍ'] or attempts == max_attempts:
 				yesterday = yesterday-datetime.timedelta(days = days_to_friday)
+			'''
         # format the date as needed for the API call of Polygon
 		yesterday = yesterday.strftime('%Y-%m-%d')
 		
