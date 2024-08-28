@@ -10,8 +10,6 @@
 
 # Ignore possible log files in case the are created
 **/logs/*
-!logs/.gitkeep  # Ensure the logs directory itself is tracked
 
 # Ignore possible Airflow plugins files in case the are created
 **/plugins/*
-!plugins/.gitkeep  # Ensure the plugins directory itself is tracked
