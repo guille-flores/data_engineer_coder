@@ -10,3 +10,6 @@
 
 # Ignore possible log files in case the are created
 /logs/*
+
+# Ignore possible Airflow plugins files in case the are created
+/plugins/*
