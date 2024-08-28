@@ -14,7 +14,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="polygon_stock_market_lastday_data_ingestion",
+    dag_id="polygon_stock_market_lastday_data_ingestion_v2",
     description='DAG to run the Python Script that inserts US Stock Market data from the day before.',
     start_date=datetime(2024, 8, 26),
     schedule="@daily",
