@@ -14,14 +14,14 @@ default_args = {
 }
 
 with DAG(
-    dag_id="polygon_stock_market_lastday_data_ingestion2",
+    dag_id="polygon_stock_market_lastday_data_ingestion",
     description='DAG to run the Python Script that inserts US Stock Market data from the day before.',
     start_date=datetime(2024, 8, 26),
     schedule="@daily",
     catchup=False
 ) as de_stockmarket_dag:
     python_ingestion_run = PythonOperator(
-        task_id='polygon_stock_yesterdays_data_ingestion2',
+        task_id='polygon_stock_yesterdays_data_ingestion',
         python_callable=main,
         dag=de_stockmarket_dag
     )
