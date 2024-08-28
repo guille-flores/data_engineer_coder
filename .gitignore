@@ -7,3 +7,6 @@
 
 # Ignore possible log files in case the are created
 **/*.log
+
+# Ignore possible log files in case the are created
+/logs/*
