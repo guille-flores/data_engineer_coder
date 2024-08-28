@@ -10,6 +10,8 @@
 
 # Ignore possible log files in case the are created
 /logs/*
+!.gitignore
 
 # Ignore possible Airflow plugins files in case the are created
 /plugins/*
+!.gitignore
