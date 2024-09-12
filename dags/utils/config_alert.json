@@ -1,0 +1,13 @@
+{
+    "from_email": "ejemplo@gmail.com",
+    "to_email": "ejemplo@gmail.com",
+    "stocks": {
+        "AAPL": {"min": 220, "max": 240},
+        "AMZN": {"min": 150, "max": 200},
+        "MSFT": {"min": 400, "max": 450},
+        "GOOG": {"min": 150, "max": 200},
+        "META": {"min": 420, "max": 550},
+        "NVDA": {"min": 100, "max": 150},
+        "TSLA": {"min": 180, "max": 250}
+    }
+}

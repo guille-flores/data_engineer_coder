@@ -16,6 +16,11 @@ def main():
 		dotenv_path = os.path.join(project_root, 'config', '.env')
 		load_dotenv(dotenv_path)
 
+		# Google Account App Password to access and send emails
+		# Doc: https://support.google.com/accounts/answer/185833?hl=en
+		GOOGLE_APP_PASSWORD = os.getenv('GOOGLE_APP_PASSWORD')
+
+		
 		###########################################################################################
 		###########################################################################################
 		# CONNECTING TO POLYGON API TO RETRIEVE THE DATA AND MANIPULATE IT
@@ -57,7 +62,7 @@ def main():
         # format the date as needed for the API call of Polygon
 		yesterday = yesterday.strftime('%Y-%m-%d')
 		
-		df_stocks = get_polygon_financial_data(POLYGON_BEARER_TOKEN, yesterday)
+		df_stocks = get_polygon_financial_data(POLYGON_BEARER_TOKEN, GOOGLE_APP_PASSWORD, yesterday)
 
 		if not isinstance(df_stocks, pd.DataFrame) or df_stocks.empty:
 			raise Exception("Sorry, seems like there is no data to work with.")

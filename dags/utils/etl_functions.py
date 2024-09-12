@@ -1,12 +1,33 @@
 import psycopg2
 import requests
+import os
 import datetime
 import pandas as pd
+import json
+import smtplib
+
+
+###########################################
+# ALERT VIA EMAIL (GMAIL)
+###########################################
+def send_threshold_alert(from_email, to_email, GOOGLE_APP_PASSWORD, df):
+    try:
+        x=smtplib.SMTP('smtp.gmail.com',587)
+        x.starttls()
+        x.login(from_email, GOOGLE_APP_PASSWORD)
+        subject = '[WARNING] Polygon ETL Process - US Stock out of threshold'
+        body_text = '\n'.join(df['T'].astype(str) + ' - either the high or low price from yesterday [' + df['l'].astype(str) + '-' + df['h'].astype(str) + '] is outside of the given threshold [' + df['min_threshold'].astype(str) + '-' + df['max_threshold'].astype(str) + ']')
+        message = 'Subject: {}\n\n{}'.format(subject,body_text)
+        x.sendmail(from_email,to_email,message)
+        print('Email sent successfully!')
+    except Exception as exception:
+        print('Failure - Email was not sent successfully')
+        print(exception)
 
 ###########################################
 # POLYGON FINANCIAL API GET REQUEST 
 ###########################################
-def get_polygon_financial_data(POLYGON_BEARER_TOKEN, date):
+def get_polygon_financial_data(POLYGON_BEARER_TOKEN, GOOGLE_APP_PASSWORD, date):
     try:
         # obtaining the API call for the stock values per day
         stock_request = requests.get(
@@ -21,9 +42,49 @@ def get_polygon_financial_data(POLYGON_BEARER_TOKEN, date):
             if stock_request.json()["resultsCount"] == 0:
                 return pd.DataFrame() #empty DF
             stock_results = stock_request.json()["results"]
+            stock_df = pd.DataFrame(stock_results)
+            
+            # Get the directory of the current script (etl_function.py)
+            current_dir = os.path.dirname(__file__)
+            print('current dir: ')
+            print(current_dir)
+            # Construct the path to the project root by going up one level from src/
+            project_utils = os.path.abspath(os.path.join(current_dir, '.'))
+            print('project_utils dir: ')
+            print(project_utils)
+            # Build the full path to the .env file in the config directory
+            config_alert_path = os.path.join(project_utils, 'config_alert.json')
+            print('config_alert_path dir: ')
+            print(config_alert_path)
+            with open(config_alert_path, 'r') as json_config:
+                config_alert = json.load(json_config)
+                config_alert_stocks = config_alert['stocks']
+                config_alert_from_email = config_alert['from_email']
+                config_alert_to_email = config_alert['to_email']
 
+            stock_df_warning = pd.DataFrame()
+            for item in config_alert_stocks:
+                min_threshold = config_alert_stocks[item]['min']
+                max_threshold = config_alert_stocks[item]['max']
+                
+                # print(f'{item} - [{config_alert_stocks[item]['min']} - {config_alert_stocks[item]['max']}]')
+                # print(stock_df.query(f'T=="{item}"'))
+                stock_warning_stg = stock_df.query(f'T=="{item}" & (h > {max_threshold} | l < {min_threshold})')
+                stock_warning_stg['min_threshold'] = min_threshold
+                stock_warning_stg['max_threshold'] = max_threshold
+                stock_df_warning = pd.concat([stock_df_warning, stock_warning_stg], axis=0)
+                # print(stock_df_warning)
+                # print()
+            
+            # Using shape to get the size
+            warning_rows, warning_columns = stock_df_warning.shape
+            if warning_rows > 0:
+                print('WARNING: Some stocks are outside of the specified threshold.')
+                print(stock_df_warning)
+                send_threshold_alert(config_alert_from_email, config_alert_to_email, GOOGLE_APP_PASSWORD, stock_df_warning)
+            
             # Returning the data as a pandas Data Frame
-            return pd.DataFrame(stock_results)
+            return stock_df
         else:
             raise Exception(f"Error - There was an error trying to retrieve data from Polygon API.\nAPI Request Status Code: {stock_request.status_code}\n{stock_request.json()}")
     except Exception as error:
